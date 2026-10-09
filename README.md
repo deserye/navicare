@@ -74,10 +74,10 @@ Leave it unset for a public educational app. Do not hardcode the password in `ap
 
 Every illustration the app shows is a file in `assets/`:
 
-- `assets/navicare_logo_mark.png`
-- `assets/navicare_hero.png`
-- `assets/navicare_scheme.png`
-- `assets/navicare_conversation.png`
+- `assets/navicare_logo_mark.jpg`
+- `assets/navicare_hero.jpg`
+- `assets/navicare_scheme.jpg`
+- `assets/navicare_conversation.jpg`
 - `assets/styles.css`
 
 Keep each picture under 1.5 MB. GitHub rejects files over 100 MB, and large images slow Streamlit Community Cloud. To replace a drawing with your own photo, shrink it first. The script needs Pillow (`python -m pip install pillow`):

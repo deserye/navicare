@@ -301,9 +301,10 @@ def render_brand_bar() -> None:
     if logo is None or logo.stat().st_size > 120_000:
         mark = ""
     else:
-        logo_uri = "data:image/png;base64," + base64.b64encode(
-            logo.read_bytes()
-        ).decode("ascii")
+        mime = "image/jpeg" if logo.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+        logo_uri = f"data:{mime};base64," + base64.b64encode(logo.read_bytes()).decode(
+            "ascii"
+        )
         mark = f'<img src="{logo_uri}" alt="NaviCare logo mark" width="44" height="44">'
     st.markdown(
         f'<div class="brand-bar">{mark}<div><div class="brand-name">NaviCare</div><div class="brand-subtitle">CareShield Life and ElderShield information navigator</div></div></div>',
@@ -532,15 +533,8 @@ def render_coverage() -> None:
         st.markdown("#### Six activities of daily living")
         with st.expander("Open the plain-language explainer"):
             st.dataframe(ADL_TABLE, width="stretch", hide_index=True)
-        chart = pd.DataFrame(
-            {
-                "Scheme or topic": ["CareShield Life", "ElderShield", "Supplements"],
-                "Public explanation scope": [5, 4, 3],
-            }
-        ).set_index("Scheme or topic")
-        st.bar_chart(chart, color="#087f70", height=220)
         st.caption(
-            "Relative breadth of the public explanation in this prototype; this is not a measure of coverage or value."
+            "The table is a reading guide. It does not rank the schemes or show how much cover a person has."
         )
         st.markdown(
             f"Continue with [CPF Board CareShield Life]({CARESHIELD_URL}), [CPF Board ElderShield]({ELDERSHIELD_URL}), or [CPF member services]({CPF_MEMBER_URL})."
@@ -664,25 +658,21 @@ def render_care() -> None:
                 )
         with right:
             st.markdown(
-                '<div class="card"><div class="metric-label">Care pathway principle</div><div class="metric-value">Ask, verify, prepare</div><p>Use this checklist to organise a conversation. Only the relevant official agency, assessor, or professional can advise on a real situation.</p></div>',
+                """
+                <div class="card">
+                  <div class="metric-label">How to read the list</div>
+                  <h3>A plan for the conversation</h3>
+                  <p>The steps on the left are questions and checks to take to the official agency. They are not a rating of a person or a claim.</p>
+                  <ul class="guide-list">
+                    <li><strong>Route.</strong> Which official page or service to open first.</li>
+                    <li><strong>Documents.</strong> Collect only what that service asks for.</li>
+                    <li><strong>Assessor.</strong> Who can look at severe disability. NaviCare cannot.</li>
+                    <li><strong>Consent.</strong> What authority you need before acting for someone else.</li>
+                    <li><strong>Verify.</strong> Read the live page before sharing any personal information.</li>
+                  </ul>
+                </div>
+                """,
                 unsafe_allow_html=True,
-            )
-            st.write("")
-            chart = pd.DataFrame(
-                {
-                    "Preparation area": [
-                        "Official route",
-                        "Documents",
-                        "Assessor or provider",
-                        "Authority / consent",
-                        "Verification",
-                    ],
-                    "Checklist emphasis": [5, 5, 4, 4, 5],
-                }
-            ).set_index("Preparation area")
-            st.bar_chart(chart, color="#ed765e", height=240)
-            st.caption(
-                "Relative emphasis in this generic checklist, not a score of the person or claim."
             )
         st.write("")
         st.markdown(
@@ -738,8 +728,28 @@ def render_chatbot() -> None:
     st.write("")
     if not get_secret("OPENAI_API_KEY"):
         st.info(
-            "The guided tools work without a key. Add OPENAI_API_KEY to server-side secrets to enable the optional chatbot."
+            "Home and the two journeys work with no key. The chatbot stays off until a key is saved outside this page."
         )
+        with st.expander("Where to put the API key", expanded=True):
+            st.markdown("""
+Do not type the key into this page, into `app.py`, or into GitHub.
+
+**Hosted on Streamlit Community Cloud**
+
+1. Open [your app dashboard](https://share.streamlit.io/).
+2. Open this app, then **Settings → Secrets**.
+3. Paste the lines below, using your own key, and save.
+4. Reboot the app from **Manage app**.
+
+**Running on your computer**
+
+Create `.streamlit/secrets.toml` in the NaviCare folder, next to `app.py`, and paste the same lines. That file stays on your machine.
+
+```toml
+OPENAI_API_KEY = "your-secret-key"
+CARE_LLM_MODEL = "gpt-4o-mini"
+```
+                """)
     st.markdown("**Try a safe starter question**")
     columns = st.columns(len(CHAT_STARTERS))
     for column, (label, prompt) in zip(columns, CHAT_STARTERS):
