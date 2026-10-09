@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-label="Two people talking">
+  <defs>
+    <linearGradient id="talkBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff8f4"/>
+      <stop offset="1" stop-color="#e6f4fa"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="760" fill="url(#talkBg)"/>
+  <circle cx="180" cy="150" r="140" fill="#e98268" opacity="0.16"/>
+  <circle cx="1040" cy="140" r="120" fill="#158477" opacity="0.14"/>
+  <rect x="160" y="600" width="880" height="70" rx="35" fill="#ffffff"/>
+  <g>
+    <rect x="150" y="90" width="360" height="150" rx="28" fill="#ffffff"/>
+    <path d="M250 240 l30 0 l-10 36 z" fill="#ffffff"/>
+    <rect x="186" y="128" width="220" height="18" rx="8" fill="#e5f6f0"/>
+    <rect x="186" y="166" width="160" height="18" rx="8" fill="#e8efec"/>
+  </g>
+  <g>
+    <rect x="690" y="120" width="380" height="160" rx="28" fill="#ffffff"/>
+    <path d="M960 280 l30 0 l-8 36 z" fill="#ffffff"/>
+    <rect x="726" y="162" width="240" height="18" rx="8" fill="#ffe6de"/>
+    <rect x="726" y="200" width="170" height="18" rx="8" fill="#e8efec"/>
+  </g>
+  <g>
+    <circle cx="340" cy="390" r="40" fill="#f3d5c4"/>
+    <rect x="292" y="432" width="96" height="140" rx="36" fill="#158477"/>
+  </g>
+  <g>
+    <circle cx="860" cy="390" r="40" fill="#f3d5c4"/>
+    <rect x="812" y="432" width="96" height="140" rx="36" fill="#27506a"/>
+  </g>
+</svg>

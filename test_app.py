@@ -1,0 +1,56 @@
+import app
+
+coverage = app.coverage_output(
+    "Born in 1980 or after",
+    "Claims and severe disability",
+    "Family member or caregiver",
+)
+assert len(coverage["prompts"]) == 3
+assert any("six activities of daily living" in item for item in coverage["prompts"])
+assert any("AIC" in item for item in coverage["prompts"])
+
+care = app.care_output(
+    "Caregiver or family member",
+    "Apply or find application support",
+    "AIC",
+)
+assert len(care["checklist"]) == 5
+assert any("eFASS" in item for item in care["checklist"])
+assert any("mental capacity" in item for item in care["checklist"])
+
+assert "IMPORTANT NOTICE" in app.DISCLAIMER
+assert "CareShield Life" in app.SOURCE_CONTEXT
+assert "ElderShield" in app.SOURCE_CONTEXT
+assert "long-term-care" in app.SOURCE_CONTEXT
+
+assert app.resolve_nav(None, None) == "Home"
+assert app.resolve_nav("Home", "Care conversation") == "Care conversation"
+assert app.resolve_nav("About Us", "Not a page") == "About Us"
+assert app.resolve_nav(None, None, "Methodology") == "Methodology"
+assert app.resolve_nav("Home", None, "Methodology") == "Home"
+assert app.resolve_nav(None, None, "../secrets") == "Home"
+
+for destination in app.HOME_DESTINATIONS.values():
+    assert destination in app.PAGES
+for page in app.PAGES:
+    assert page
+
+seen_urls = set()
+for source in app.OFFICIAL_SOURCES:
+    assert source["url"].startswith("https://")
+    assert source["url"] not in seen_urls
+    seen_urls.add(source["url"])
+    assert source["url"] in app.SOURCE_CONTEXT or source["key"] in {"moh", "cpf-member"}
+
+assert app.STYLES_PATH.exists()
+for stem in app.IMAGE_STEMS:
+    picture = app.image_file(stem)
+    assert picture is not None, stem
+    assert picture.parent == app.ASSET_DIR
+    assert 200 < picture.stat().st_size <= app.MAX_RASTER_BYTES, picture
+
+original_get_secret = app.get_secret
+app.get_secret = lambda name: ""
+assert "not connected" in app.assistant_reply([])
+app.get_secret = original_get_secret
+print("NaviCare deterministic smoke tests passed.")

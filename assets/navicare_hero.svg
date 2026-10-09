@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" role="img" aria-label="Three people standing along a path">
+  <defs>
+    <linearGradient id="heroBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dff6ee"/>
+      <stop offset="0.55" stop-color="#e6f1fb"/>
+      <stop offset="1" stop-color="#fff0e7"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="680" fill="url(#heroBg)"/>
+  <circle cx="980" cy="110" r="150" fill="#e98268" opacity="0.28"/>
+  <circle cx="180" cy="560" r="180" fill="#158477" opacity="0.16"/>
+  <circle cx="620" cy="70" r="90" fill="#27506a" opacity="0.1"/>
+  <path d="M150 520 C 380 450, 820 450, 1050 520" fill="none" stroke="#158477" stroke-width="8" stroke-linecap="round"/>
+  <rect x="140" y="555" width="920" height="72" rx="36" fill="#ffffff"/>
+  <g>
+    <circle cx="360" cy="250" r="42" fill="#f3d5c4"/>
+    <rect x="312" y="292" width="96" height="150" rx="36" fill="#158477"/>
+  </g>
+  <g>
+    <circle cx="600" cy="310" r="30" fill="#e8c2ae"/>
+    <rect x="566" y="342" width="68" height="108" rx="28" fill="#e98268"/>
+  </g>
+  <g>
+    <circle cx="860" cy="236" r="46" fill="#f3d5c4"/>
+    <rect x="806" y="284" width="108" height="164" rx="40" fill="#27506a"/>
+  </g>
+</svg>

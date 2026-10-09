@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-label="Three scheme cards under a care mark">
+  <defs>
+    <linearGradient id="schemeBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffdf9"/>
+      <stop offset="1" stop-color="#e5f6f0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="760" fill="url(#schemeBg)"/>
+  <circle cx="140" cy="120" r="120" fill="#158477" opacity="0.12"/>
+  <circle cx="1080" cy="640" r="150" fill="#e98268" opacity="0.16"/>
+  <g>
+    <rect x="80" y="180" width="300" height="460" rx="28" fill="#ffffff"/>
+    <rect x="80" y="180" width="300" height="16" rx="8" fill="#158477"/>
+    <rect x="116" y="250" width="180" height="36" rx="12" fill="#158477"/>
+    <rect x="116" y="320" width="150" height="22" rx="8" fill="#e5f6f0"/>
+    <rect x="116" y="364" width="110" height="22" rx="8" fill="#e8efec"/>
+  </g>
+  <g>
+    <rect x="450" y="240" width="300" height="400" rx="28" fill="#ffffff"/>
+    <rect x="450" y="240" width="300" height="16" rx="8" fill="#27506a"/>
+    <rect x="486" y="310" width="180" height="36" rx="12" fill="#27506a"/>
+    <rect x="486" y="380" width="150" height="22" rx="8" fill="#e5f6f0"/>
+    <rect x="486" y="424" width="110" height="22" rx="8" fill="#e8efec"/>
+  </g>
+  <g>
+    <rect x="820" y="300" width="300" height="340" rx="28" fill="#ffffff"/>
+    <rect x="820" y="300" width="300" height="16" rx="8" fill="#e98268"/>
+    <rect x="856" y="360" width="180" height="36" rx="12" fill="#e98268"/>
+    <rect x="856" y="430" width="150" height="22" rx="8" fill="#e5f6f0"/>
+    <rect x="856" y="474" width="110" height="22" rx="8" fill="#e8efec"/>
+  </g>
+  <rect x="548" y="48" width="104" height="104" rx="28" fill="#158477"/>
+  <path d="M600 78 v48 M576 102 h48" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+</svg>
