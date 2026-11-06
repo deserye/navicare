@@ -1,3 +1,11 @@
+"""NaviCare: an educational navigator for CareShield Life and ElderShield.
+
+The app consolidates public CPF Board, MOH, and AIC guidance into two journeys
+(scheme learning and a care conversation) plus follow-up answers. It does not
+check a person's coverage, store personal data, or give medical, legal, or
+financial advice. Verify anything current or personal on the official sites.
+"""
+
 from __future__ import annotations
 
 import os
@@ -231,8 +239,9 @@ def gate_if_configured() -> None:
     st.stop()
 
 
-def disclaimer() -> None:
-    with st.expander("Important prototype notice", expanded=True):
+def disclaimer(expanded: bool = True) -> None:
+    """Show the required educational-prototype notice. Keep it open on Home."""
+    with st.expander("Important prototype notice", expanded=expanded):
         st.warning(DISCLAIMER)
 
 
@@ -388,7 +397,7 @@ def render_home() -> None:
         )
     with c:
         st.markdown(
-            '<div class="card"><div class="metric-label">03</div><div class="metric-value">Ask</div><p>Use the optional chatbot for source-grounded concept questions, with verification reminders.</p></div>',
+            '<div class="card"><div class="metric-label">03</div><div class="metric-value">Ask</div><p>Ask a follow-up in plain language. A built-in explainer answers from the official notes, and a language model is used only when a key is configured.</p></div>',
             unsafe_allow_html=True,
         )
     st.write("")
@@ -401,6 +410,7 @@ def render_home() -> None:
 
 
 def coverage_output(birth_band: str, focus: str, role: str) -> dict[str, Any]:
+    """Build three learning prompts from broad, non-identifying form choices."""
     prompts = []
     if birth_band == "Born in 1980 or after":
         prompts.append(
@@ -441,6 +451,52 @@ def coverage_output(birth_band: str, focus: str, role: str) -> dict[str, Any]:
     return {"prompts": prompts}
 
 
+def render_joining_visual() -> None:
+    """Show the two public joining routes as equal paths, not as a coverage score."""
+    st.markdown("#### Joining pathways")
+    st.caption(
+        "CPF Board describes these as different public routes. The cards are equal on purpose: this is not a score, and it does not confirm anyone’s cover."
+    )
+    st.markdown(
+        """
+        <div class="path-grid">
+          <div class="path-card">
+            <div class="eyebrow">Route A</div>
+            <h3>Born in 1980 or after</h3>
+            <p>CPF Board describes automatic CareShield Life coverage at age 30, subject to the detailed rules on its page.</p>
+          </div>
+          <div class="path-card">
+            <div class="eyebrow">Route B</div>
+            <h3>Born in 1979 or earlier</h3>
+            <p>ElderShield is described as a closed scheme. CareShield Life participation is described as optional for many people in this group, with exceptions on the official page.</p>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_adl_visual() -> None:
+    """Show the six activities of daily living as equal items, not a severity score."""
+    names = [
+        "Washing",
+        "Dressing",
+        "Feeding",
+        "Toileting",
+        "Walking or moving",
+        "Transferring",
+    ]
+    tiles = "".join(
+        f'<div class="adl-tile"><span>{index:02d}</span><strong>{name}</strong></div>'
+        for index, name in enumerate(names, start=1)
+    )
+    st.markdown("#### Six activities of daily living")
+    st.caption(
+        "Official claim explanations refer to these six activities. Each tile has the same weight. NaviCare cannot assess them."
+    )
+    st.markdown(f'<div class="adl-grid">{tiles}</div>', unsafe_allow_html=True)
+
+
 def render_coverage() -> None:
     intro_col, visual_col = st.columns([1.18, 0.82], gap="large")
     with intro_col:
@@ -460,6 +516,8 @@ def render_coverage() -> None:
     )
     render_link_buttons(["careshield", "eldershield", "cpf-member"])
     st.write("")
+    render_joining_visual()
+    render_adl_visual()
     with st.form("coverage_form"):
         st.markdown("#### Choose the learning context")
         col1, col2 = st.columns(2)
@@ -530,8 +588,8 @@ def render_coverage() -> None:
         st.write("")
         st.markdown("#### High-level comparison")
         st.dataframe(CARE_COMPARISON, width="stretch", hide_index=True)
-        st.markdown("#### Six activities of daily living")
-        with st.expander("Open the plain-language explainer"):
+        st.markdown("#### Plain-language descriptions")
+        with st.expander("Open the activity descriptions"):
             st.dataframe(ADL_TABLE, width="stretch", hide_index=True)
         st.caption(
             "The table is a reading guide. It does not rank the schemes or show how much cover a person has."
@@ -545,6 +603,7 @@ def render_coverage() -> None:
 
 
 def care_output(audience: str, task: str, destination: str) -> dict[str, Any]:
+    """Build a five-step preparation checklist from broad, non-identifying choices."""
     checklist = []
     if task == "Understand a possible claim":
         checklist.extend(
@@ -592,6 +651,36 @@ def care_output(audience: str, task: str, destination: str) -> dict[str, Any]:
     return {"checklist": checklist}
 
 
+def render_destination_visual() -> None:
+    """Map the three public destinations a care conversation can start from."""
+    st.markdown("#### Where the conversation can start")
+    st.caption(
+        "Pick the agency that matches the question. The map does not rank them or predict an outcome."
+    )
+    st.markdown(
+        """
+        <div class="dest-grid">
+          <div class="dest-card">
+            <div class="eyebrow">Coverage</div>
+            <h3>CPF Board</h3>
+            <p>Scheme pages and the secure member service for a real coverage check.</p>
+          </div>
+          <div class="dest-card">
+            <div class="eyebrow">Application</div>
+            <h3>AIC</h3>
+            <p>How to apply, which documents to prepare, eFASS, and assessor guidance.</p>
+          </div>
+          <div class="dest-card">
+            <div class="eyebrow">Policy</div>
+            <h3>MOH</h3>
+            <p>Scheme overview and how supplements sit on top of a basic plan.</p>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_care() -> None:
     intro_col, visual_col = st.columns([1.18, 0.82], gap="large")
     with intro_col:
@@ -611,6 +700,7 @@ def render_care() -> None:
     )
     render_link_buttons(["aic", "careshield", "moh"])
     st.write("")
+    render_destination_visual()
     with st.form("care_form"):
         st.markdown("#### Set the conversation context")
         col1, col2 = st.columns(2)
@@ -683,10 +773,93 @@ def render_care() -> None:
     )
 
 
+VERIFY_LINE = "Verify with CPF Board, MOH, or AIC before relying on this explanation."
+
+
+def latest_user_text(messages: list[dict[str, str]]) -> str:
+    """Return the newest user turn, or an empty string when the chat has not started."""
+    for message in reversed(messages):
+        if message.get("role") == "user":
+            return str(message.get("content", ""))
+    return ""
+
+
+def builtin_reply(question: str) -> str:
+    """Answer a follow-up from the fixed official-source notes when no model is configured.
+
+    The match is keyword-based and stays inside the public context already used
+    by the language-model path. It does not look up a person's coverage.
+    """
+    text = (question or "").lower()
+
+    def hit(*needles: str) -> bool:
+        return any(needle in text for needle in needles)
+
+    sections: list[str] = []
+    if (
+        not text
+        or hit(
+            "careshield",
+            "care shield",
+            "eldershield",
+            "elder shield",
+            "difference",
+            "compare",
+            "scheme",
+        )
+    ):
+        sections.append(
+            "CareShield Life is the current long-term-care scheme. CPF Board describes monthly cash payouts if an insured person develops severe disability, and says all Singapore Citizens and Permanent Residents are eligible to join, with timing that depends on birth year. It describes automatic coverage at age 30 for those born in 1980 or after, and optional participation for many people born in 1979 or earlier.\n\n"
+            "ElderShield is described as a closed long-term-care scheme. Plan benefits depend on the historical scheme joined. A real coverage check belongs in CPF member services, not in this prototype."
+        )
+    if hit(
+        "daily living",
+        "activities",
+        "washing",
+        "dressing",
+        "feeding",
+        "toileting",
+        "transfer",
+        "disability",
+        "claim",
+        "adl",
+    ):
+        sections.append(
+            "Public claim explanations refer to six activities of daily living: washing, dressing, feeding, toileting, walking or moving around, and transferring. ElderShield explanations refer to inability to perform three of these six. An MOH-accredited severe-disability assessor is part of the official process. This app cannot assess disability or predict whether a claim will be approved."
+        )
+    if hit(
+        "apply",
+        "application",
+        "caregiver",
+        "efass",
+        "aic",
+        "mental",
+        "document",
+        "behalf",
+    ):
+        sections.append(
+            "AIC publishes public guidance on how to qualify, how the scheme works, how to apply, which documents are needed, eFASS, and MOH-accredited assessors. It also explains applying on behalf of someone who lacks mental capacity, including extra documents. Collect only what the official service asks for, and confirm consent before acting for another person."
+        )
+    if hit("supplement", "insurer", "premium", "medisave", "subsid"):
+        sections.append(
+            "MOH explains that supplements add coverage on top of a basic CareShield Life or ElderShield plan, and that plans differ. Use the official comparison materials and contact the insurer for a product-specific question. CPF Board’s pages discuss MediSave payment, subsidies, premium support, and a premium-check service. Do not type an exact premium or account balance into this prototype."
+        )
+    if not sections:
+        sections.append(
+            "NaviCare can explain CareShield Life, ElderShield, the six activities of daily living, supplements, and where to read about applications. It cannot check a person’s cover, interpret a medical report, or calculate a payout. Ask a general question, or use Understand my scheme and Care conversation for a guided pathway."
+        )
+    seen: list[str] = []
+    for section in sections:
+        if section not in seen:
+            seen.append(section)
+    return "\n\n".join(seen) + "\n\n" + VERIFY_LINE
+
+
 def assistant_reply(messages: list[dict[str, str]]) -> str:
+    """Answer a follow-up. Use the language model only when a key and client exist."""
     api_key = get_secret("OPENAI_API_KEY")
     if not api_key or OpenAI is None:
-        return "The optional chatbot is not connected yet. The guided tools remain available. Add OPENAI_API_KEY as a server-side environment variable or Streamlit secret to enable concept questions."
+        return builtin_reply(latest_user_text(messages))
     base_url = get_secret("OPENAI_API_BASE") or None
     model = get_secret("CARE_LLM_MODEL") or get_secret("CPF_LLM_MODEL") or "gpt-4o-mini"
     client_kwargs: dict[str, Any] = {"api_key": api_key}
@@ -726,11 +899,12 @@ def render_chatbot() -> None:
         unsafe_allow_html=True,
     )
     st.write("")
+    disclaimer(expanded=False)
     if not get_secret("OPENAI_API_KEY"):
         st.info(
-            "Home and the two journeys work with no key. The chatbot stays off until a key is saved outside this page."
+            "Follow-up answers on this page work with no key. They come from the same official-source notes as the guided journeys. A language model is used only after OPENAI_API_KEY is saved outside this page."
         )
-        with st.expander("Where to put the API key", expanded=True):
+        with st.expander("Where to put the API key"):
             st.markdown("""
 Do not type the key into this page, into `app.py`, or into GitHub.
 
@@ -816,7 +990,7 @@ def render_about() -> None:
             ],
             [
                 "Present information effectively",
-                "Combine forms, tables, charts, flow diagrams, links, and a guarded chatbot.",
+                "Combine forms, tables, visual guides, flow diagrams, links, and follow-up answers.",
             ],
         ],
         columns=["Objective", "How the prototype addresses it"],
@@ -841,7 +1015,7 @@ def render_about() -> None:
             ],
             [
                 "Optional chatbot",
-                "A source-grounded assistant answers concept questions and refuses unsafe personal-data or decision requests.",
+                "Follow-up answers use the official-source notes with no key. A language model is used only when OPENAI_API_KEY is configured.",
             ],
             [
                 "Documentation",
@@ -853,7 +1027,7 @@ def render_about() -> None:
     st.dataframe(features, width="stretch", hide_index=True)
     st.markdown("### Privacy and safety")
     st.write(
-        "The guided tools do not require login, a database, or personal information. The chatbot reads only a server-side API key and receives the current conversation plus a fixed public-source context. Users must not submit sensitive information."
+        "The guided tools do not require login, a database, or personal information. Follow-up answers use a fixed public-source context. When OPENAI_API_KEY is set, the language model also receives only the current conversation plus that context. Set APP_PASSWORD in Streamlit secrets if the submitted prototype should ask for a password, and share that password only in the bootcamp submission form. Users must not submit sensitive information."
     )
     with st.expander("Required prototype disclaimer"):
         st.warning(DISCLAIMER)
@@ -901,9 +1075,13 @@ def render_methodology() -> None:
     st.write(
         "This flow helps users prepare for an official conversation. It does not diagnose disability, interpret medical assessments, or predict claim approval."
     )
+    st.markdown("### How the pieces are implemented")
+    st.write(
+        "The interface, the two forms, the tables, and the visual guides live in `app.py`. There is no database. Broad form choices stay in the browser session and are turned into prompts by `coverage_output` and `care_output`. Follow-up answers use `builtin_reply`, which matches the question to the same public notes stored in `SOURCE_CONTEXT`."
+    )
     st.markdown("### Chatbot implementation")
     st.write(
-        "The optional chatbot receives a fixed source context and the most recent conversation turns. It uses a server-side OPENAI_API_KEY and a configurable CARE_LLM_MODEL, defaulting to gpt-4o-mini for broad OpenAI-compatible support. The request uses standard chat-completion fields and deliberately omits provider-specific reasoning parameters. It is disabled gracefully when no key is configured."
+        "Ask NaviCare answers follow-up questions without a key by using those public notes, and every answer ends with a reminder to verify with CPF Board, MOH, or AIC. When `OPENAI_API_KEY` is set, the same page calls a language model with a fixed source context and the most recent conversation turns. The model name is `CARE_LLM_MODEL`, defaulting to gpt-4o-mini. The request uses standard chat-completion fields and omits provider-specific reasoning parameters. The key is read only from the server environment or Streamlit secrets."
     )
     st.markdown("### Limitations")
     limitations = pd.DataFrame(

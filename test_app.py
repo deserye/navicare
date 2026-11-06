@@ -51,6 +51,19 @@ for stem in app.IMAGE_STEMS:
 
 original_get_secret = app.get_secret
 app.get_secret = lambda name: ""
-assert "not connected" in app.assistant_reply([])
+empty_reply = app.assistant_reply([])
+assert "CareShield Life" in empty_reply
+assert "Verify with CPF Board, MOH, or AIC" in empty_reply
+adl_reply = app.assistant_reply(
+    [{"role": "user", "content": "What are the six activities of daily living?"}]
+)
+assert "washing" in adl_reply.lower()
+assert "transferring" in adl_reply.lower()
+assert "Verify with CPF Board, MOH, or AIC" in adl_reply
+apply_reply = app.assistant_reply(
+    [{"role": "user", "content": "Where can a caregiver learn about applying?"}]
+)
+assert "eFASS" in apply_reply
+assert "AIC" in apply_reply
 app.get_secret = original_get_secret
 print("NaviCare deterministic smoke tests passed.")

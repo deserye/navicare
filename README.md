@@ -10,7 +10,7 @@ NaviCare is an educational Streamlit app for understanding Singapore’s CareShi
 
 **Prepare for a care or claim conversation** uses broad audience, task, and intended destination to produce a preparation checklist. It links to CPF Board, MOH, and AIC. It does not assess disability, interpret medical reports, or predict claim approval.
 
-**Ask NaviCare** answers general concept questions from a fixed official-source context. The chatbot is optional. Without an API key, the rest of the app still runs.
+**Ask NaviCare** answers follow-up questions from the same official-source notes. Those answers work with no API key. If `OPENAI_API_KEY` is set, the page uses a language model for the same kind of question and still tells the reader to verify the answer.
 
 **About Us** and **Methodology** explain the scope, the two journeys, and the limits of the prototype.
 
@@ -69,6 +69,27 @@ APP_PASSWORD = "your-private-app-password"
 ```
 
 Leave it unset for a public educational app. Do not hardcode the password in `app.py`.
+
+For a bootcamp submission, set `APP_PASSWORD` in Streamlit Community Cloud secrets and type that same password into the LaunchPad form. Do not put the password in GitHub.
+
+## Bootcamp submission checklist
+
+NaviCare is a learning prototype. Do not use it for a real financial, legal, or healthcare decision, do not promote it to the public, and do not collect real or sensitive user data.
+
+What the app already includes:
+
+- Two use cases: **Understand my scheme** and **Care conversation**, each with a form, a table or checklist, and a visual guide.
+- Follow-up answers on **Ask NaviCare**, including when no model key is configured.
+- The required disclaimer on **Home**, under “Important prototype notice”.
+- **About Us** (scope, objectives, data sources, features) and **Methodology** (data flow, implementation, and a flowchart for each use case).
+- Links only to public CPF Board, MOH, and AIC pages.
+
+What you still submit yourself:
+
+1. Deploy the app on [Streamlit Community Cloud](https://share.streamlit.io/) from your GitHub repository (`main`, main file `app.py`).
+2. In the app’s **Settings → Secrets**, set `APP_PASSWORD` if you want the recommended password gate. Add `OPENAI_API_KEY` only if you also want model answers.
+3. In LaunchPad, open the Ideate tab, edit the idea, and fill Proposed Solution with the title, a short description, the Streamlit URL, the password if you set one, the project type tag, and the team members.
+4. Open the live URL and check Home, both journeys, Ask NaviCare, About Us, and Methodology before you submit.
 
 ## Pictures
 

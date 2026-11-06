@@ -335,6 +335,61 @@ body:has([data-testid="stMainMenuItem-theme-Dark"][aria-checked="true"]) .hero {
   align-self: center;
 }
 
+.path-grid,
+.adl-grid,
+.dest-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.35rem 0 1.1rem;
+}
+
+.path-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.adl-grid,
+.dest-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.path-card,
+.adl-tile,
+.dest-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0.95rem 1rem;
+  box-shadow: 0 6px 20px rgba(16, 42, 67, 0.04);
+}
+
+.path-card h3,
+.dest-card h3 {
+  margin: 0.25rem 0 0.35rem;
+  font-size: 1.12rem;
+}
+
+.path-card p,
+.dest-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.adl-tile span {
+  display: block;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.adl-tile strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--navy);
+  font-size: 1.02rem;
+}
+
 .footer-links {
   color: var(--muted);
   font-size: 0.92rem;
@@ -382,6 +437,12 @@ a {
 
   .flow {
     flex-direction: column;
+  }
+
+  .path-grid,
+  .adl-grid,
+  .dest-grid {
+    grid-template-columns: 1fr;
   }
 
   .flow-arrow {
