@@ -29,8 +29,13 @@ assert app.resolve_nav("About Us", "Not a page") == "About Us"
 assert app.resolve_nav(None, None, "Methodology") == "Methodology"
 assert app.resolve_nav("Home", None, "Methodology") == "Home"
 assert app.resolve_nav(None, None, "../secrets") == "Home"
-assert app.resolve_nav(None, "Admin", None, app.USER_PAGES) == "Home"
+assert app.resolve_nav(None, "Admin", None, app.pages_for("User")) == "Home"
+assert app.pages_for(None) == app.PUBLIC_PAGES
+assert "Understand my scheme" not in app.pages_for(None)
+assert "About Us" in app.pages_for(None)
+assert "Ask NaviCare" in app.pages_for("User")
 assert "Admin" not in app.pages_for("User")
+assert "Methodology" in app.pages_for("User")
 assert app.pages_for("Admin")[-1] == "Admin"
 assert app.authenticate("user", "aibootcamp") == "User"
 assert app.authenticate(" Admin ", "aibootcamp") == "Admin"

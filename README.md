@@ -12,9 +12,7 @@ NaviCare is an educational Streamlit app for understanding Singapore’s CareShi
 
 **Ask NaviCare** answers follow-up questions from the same official-source notes. Those answers work with no API key. If `OPENAI_API_KEY` is set, the page uses a language model for the same kind of question and still tells the reader to verify the answer.
 
-Sign-in is required before any page. The **user** group can use both journeys, follow-up answers, About Us, and Methodology. The **admin** group can do that and also open a session overview. Demo usernames are `user` and `admin`. The password for both is `aibootcamp`.
-
-**About Us** and **Methodology** explain the scope, the two journeys, and the limits of the prototype.
+**Home**, **About Us**, and **Methodology** are open without a password. **Understand my scheme**, **Care conversation**, and **Ask NaviCare** ask the visitor to sign in. The user account opens those three. The admin account opens those three and an Admin page. Demo usernames are `user` and `admin`. The password for both is `aibootcamp`.
 
 Illustrations are image files in [`assets/`](assets/), next to [`app.py`](app.py). Streamlit loads them from that folder.
 
@@ -64,7 +62,7 @@ If a previous copy of this project included a real API key, rotate that key. Put
 
 ## Sign-in
 
-Every feature sits behind the sign-in page. Use these demo accounts when you submit the app:
+Home, About Us, and Methodology stay open. The two journeys and Ask NaviCare use these demo accounts:
 
 | Group | Username | Password |
 | --- | --- | --- |
@@ -84,14 +82,14 @@ What the app already includes:
 - The required disclaimer on **Home**, under “Important prototype notice”.
 - **About Us** (scope, objectives, data sources, features) and **Methodology** (data flow, implementation, and a flowchart for each use case).
 - Links only to public CPF Board, MOH, and AIC pages.
-- Sign-in before the features, with a user group and an admin group. The demo password is `aibootcamp`.
+- Home, About Us, and Methodology open without a password. The two journeys and Ask NaviCare require `user` or `admin`. Admin also has an Admin page. The password is `aibootcamp`.
 
 What you still submit yourself:
 
 1. Deploy the app on [Streamlit Community Cloud](https://share.streamlit.io/) from your GitHub repository (`main`, main file `app.py`).
 2. In LaunchPad, open the Ideate tab, edit the idea, and fill Proposed Solution with the title, a short description, the Streamlit URL, the password `aibootcamp`, the project type tag, and the team members.
 3. Add `OPENAI_API_KEY` in **Settings → Secrets** only if you also want model answers.
-4. Open the live URL, sign in as `user` and as `admin`, and check both journeys, Ask NaviCare, About Us, and Methodology before you submit.
+4. Open the live URL. Check Home, About Us, and Methodology before signing in. Then sign in as `user` and as `admin` and check both journeys, Ask NaviCare, and the Admin page.
 
 ## Pictures
 

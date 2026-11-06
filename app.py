@@ -35,16 +35,16 @@ IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".svg")
 # Skip a file above this size so an oversized photo cannot stall the page.
 MAX_RASTER_BYTES = 1_500_000
 
-USER_PAGES = [
+PUBLIC_PAGES = ["Home", "About Us", "Methodology"]
+FEATURE_PAGES = ["Understand my scheme", "Care conversation", "Ask NaviCare"]
+ADMIN_PAGE = "Admin"
+PAGES = [
     "Home",
-    "Understand my scheme",
-    "Care conversation",
-    "Ask NaviCare",
+    *FEATURE_PAGES,
     "About Us",
     "Methodology",
+    ADMIN_PAGE,
 ]
-ADMIN_PAGE = "Admin"
-PAGES = USER_PAGES + [ADMIN_PAGE]
 # Demo sign-in for the bootcamp submission. Override with USER_PASSWORD or ADMIN_PASSWORD.
 DEFAULT_PASSWORD = "aibootcamp"
 GROUPS = {"user": "User", "admin": "Admin"}
@@ -230,10 +230,12 @@ def get_secret(name: str) -> str:
 
 
 def pages_for(group: str | None) -> list[str]:
-    """Pages a signed-in group may open. Admin includes the user pages plus Admin."""
+    """Pages this visitor may open. Home, About Us, and Methodology stay public."""
     if group == "Admin":
         return list(PAGES)
-    return list(USER_PAGES)
+    if group == "User":
+        return [page for page in PAGES if page != ADMIN_PAGE]
+    return list(PUBLIC_PAGES)
 
 
 def account_password(username: str) -> str:
@@ -263,34 +265,40 @@ def bump(name: str) -> None:
     counts[name] = int(counts.get(name, 0)) + 1
 
 
-def require_login() -> None:
-    """Stop the app until a User or Admin account has signed in."""
-    if st.session_state.get("auth_group") in {"User", "Admin"}:
-        return
-    with st.sidebar:
-        st.markdown("## NaviCare")
-        st.caption("Sign in to use the journeys.")
+def render_login() -> None:
+    """Ask for a user or admin sign-in. Public pages stay available from the sidebar."""
+    destination = st.session_state.get("after_login")
+    if destination in FEATURE_PAGES or destination == ADMIN_PAGE:
+        intro = f"Sign in to open {destination}. Home, About Us, and Methodology stay open without a password."
+    else:
+        intro = "Sign in to use Understand my scheme, Care conversation, and Ask NaviCare. Home, About Us, and Methodology stay open without a password."
     st.markdown(
-        '<div class="hero"><div class="eyebrow">Educational prototype</div><h1>Sign in to NaviCare</h1><p>The journeys, follow-up answers, and documentation stay behind this sign-in. Choose the user group or the admin group.</p></div>',
+        f'<div class="hero"><div class="eyebrow">Educational prototype</div><h1>Sign in to NaviCare</h1><p>{intro}</p></div>',
         unsafe_allow_html=True,
     )
-    disclaimer()
     st.write("")
     with st.form("login_form"):
         username = st.text_input("Username", placeholder="user or admin")
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Sign in", type="primary")
-    st.caption("User group: username `user`. Admin group: username `admin`. Password: `aibootcamp`.")
+    st.caption("User: username `user`. Admin: username `admin`. Password: `aibootcamp`.")
+    if st.button("Back to the open pages"):
+        st.session_state["login_open"] = False
+        st.session_state.pop("after_login", None)
+        st.rerun()
     if submitted:
         group = authenticate(username, password)
         if group is None:
-            st.error("That username or password does not match. Use user or admin, and the bootcamp password.")
+            st.error("That username or password does not match. Use user or admin, and the password aibootcamp.")
         else:
             st.session_state["auth_user"] = username.strip().lower()
             st.session_state["auth_group"] = group
-            st.session_state["nav"] = "Home"
+            st.session_state["login_open"] = False
+            next_page = st.session_state.pop("after_login", None)
+            st.session_state["pending_page"] = (
+                next_page if next_page in pages_for(group) else "Home"
+            )
             st.rerun()
-    st.stop()
 
 
 def sign_out() -> None:
@@ -298,14 +306,16 @@ def sign_out() -> None:
     for key in (
         "auth_group",
         "auth_user",
-        "nav",
         "pending_page",
         "chat_messages",
         "coverage_result",
         "care_result",
         "activity_counts",
+        "login_open",
+        "after_login",
     ):
         st.session_state.pop(key, None)
+    st.session_state["pending_page"] = "Home"
     st.rerun()
 
 
@@ -392,23 +402,39 @@ def render_brand_bar() -> None:
 
 
 def queue_page(page: str) -> None:
+    group = st.session_state.get("auth_group")
+    allowed = pages_for(group if group in {"User", "Admin"} else None)
+    if page not in allowed:
+        st.session_state["after_login"] = page
+        st.session_state["login_open"] = True
+        st.rerun()
     st.session_state["pending_page"] = page
+    st.session_state["login_open"] = False
     st.rerun()
 
 
 def apply_pending_navigation() -> None:
-    allowed = pages_for(st.session_state.get("auth_group"))
+    group = st.session_state.get("auth_group")
+    allowed = pages_for(group if group in {"User", "Admin"} else None)
     pending = st.session_state.pop("pending_page", None)
     query_page = None
     try:
         query_page = st.query_params.get("page")
     except Exception:
         query_page = None
+    requested = pending if isinstance(pending, str) else query_page
+    if isinstance(requested, str) and requested in PAGES and requested not in allowed:
+        st.session_state["after_login"] = requested
+        st.session_state["login_open"] = True
+        if requested == pending:
+            pending = None
+        if requested == query_page:
+            query_page = None
     current = st.session_state.get("nav")
     st.session_state["nav"] = resolve_nav(
         current if isinstance(current, str) else None,
         pending if isinstance(pending, str) else None,
-        query_page,
+        query_page if isinstance(query_page, str) else None,
         allowed,
     )
 
@@ -1098,7 +1124,7 @@ def render_about() -> None:
             ],
             [
                 "Sign-in",
-                "A user group can use the journeys. An admin group can also open the session overview.",
+                "Home, About Us, and Methodology are open. The journeys and Ask NaviCare need a user or admin sign-in.",
             ],
         ],
         columns=["Feature", "Description"],
@@ -1106,7 +1132,7 @@ def render_about() -> None:
     st.dataframe(features, width="stretch", hide_index=True)
     st.markdown("### Privacy and safety")
     st.write(
-        "Sign-in is required before any journey. The demo accounts are user and admin, both with the bootcamp password. Nothing about a person is stored: the password check and the session counts stay in this browser session. Follow-up answers use a fixed public-source context. When OPENAI_API_KEY is set, the language model also receives only the current conversation plus that context. Do not submit sensitive information."
+        "Home, About Us, and Methodology are open to anyone. Understand my scheme, Care conversation, and Ask NaviCare ask for a sign-in. The demo accounts are user and admin, both with the bootcamp password. The admin account can also open the session overview. Nothing about a person is stored. Follow-up answers use a fixed public-source context. When OPENAI_API_KEY is set, the language model also receives only the current conversation plus that context. Do not submit sensitive information."
     )
     with st.expander("Required prototype disclaimer"):
         st.warning(DISCLAIMER)
@@ -1197,11 +1223,11 @@ def render_admin() -> None:
     page_header(
         "Admin group",
         "Session overview",
-        "This page is only on the admin menu. It shows which group can open which page, and how many journeys were built in this browser session.",
+        "Only the admin account sees this page. It shows which pages are open, which need a sign-in, and how many journeys were built in this browser session.",
     )
     user = st.session_state.get("auth_user", "admin")
     st.markdown(
-        f'<div class="card"><div class="metric-label">Signed in</div><div class="metric-value">{user}</div><p>Admin group. The user group uses the same password and cannot open this page.</p></div>',
+        f'<div class="card"><div class="metric-label">Signed in</div><div class="metric-value">{user}</div><p>Admin sees every page. A user sees the journeys and Ask NaviCare, and cannot open this page.</p></div>',
         unsafe_allow_html=True,
     )
     st.write("")
@@ -1216,12 +1242,12 @@ def render_admin() -> None:
     st.markdown("#### Who can open what")
     access = pd.DataFrame(
         [
-            ["Home", "User and Admin", "Disclaimer, two journeys, official links"],
+            ["Home", "Anyone", "Disclaimer, two journeys, official links"],
+            ["About Us", "Anyone", "Scope, objectives, sources, features"],
+            ["Methodology", "Anyone", "Data flow and one flowchart per use case"],
             ["Understand my scheme", "User and Admin", "Form, comparison table, joining and activity visuals"],
             ["Care conversation", "User and Admin", "Form, checklist, destination visual"],
             ["Ask NaviCare", "User and Admin", "Follow-up answers from the official notes"],
-            ["About Us", "User and Admin", "Scope, objectives, sources, features"],
-            ["Methodology", "User and Admin", "Data flow and one flowchart per use case"],
             ["Admin", "Admin only", "This session overview"],
         ],
         columns=["Page", "Group", "What it is for"],
@@ -1254,17 +1280,30 @@ def render_footer() -> None:
 
 def render_sidebar() -> str:
     apply_pending_navigation()
-    group = str(st.session_state.get("auth_group") or "User")
+    group = st.session_state.get("auth_group")
+    if group not in {"User", "Admin"}:
+        group = None
     allowed = pages_for(group)
+    before = st.session_state.get("nav")
     with st.sidebar:
         logo = image_file("navicare_logo_mark")
         if logo is not None:
             st.image(str(logo), width=64)
         st.markdown("## NaviCare")
-        st.caption(f"{st.session_state.get('auth_user', '')} · {group} group")
+        if group:
+            st.caption(f"{st.session_state.get('auth_user', '')} · {group}")
+        else:
+            st.caption("Home, About Us, and Methodology are open.")
         st.radio("Navigate", allowed, key="nav", label_visibility="collapsed")
-        if st.button("Sign out", width="stretch"):
-            sign_out()
+        if before != st.session_state.get("nav") and st.session_state.get("nav") in allowed:
+            st.session_state["login_open"] = False
+            st.session_state.pop("after_login", None)
+        if group:
+            if st.button("Sign out", width="stretch"):
+                sign_out()
+        elif st.button("Sign in", width="stretch"):
+            st.session_state["login_open"] = True
+            st.rerun()
         st.divider()
         st.markdown("### Official sources")
         for source in OFFICIAL_SOURCES:
@@ -1294,9 +1333,13 @@ def main() -> None:
     )
     inject_css()
     render_brand_bar()
-    require_login()
     page = render_sidebar()
-    if page == "Home":
+    if st.session_state.get("login_open") and st.session_state.get("auth_group") not in {
+        "User",
+        "Admin",
+    }:
+        render_login()
+    elif page == "Home":
         render_home()
     elif page == "Understand my scheme":
         render_coverage()
