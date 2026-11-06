@@ -29,6 +29,14 @@ assert app.resolve_nav("About Us", "Not a page") == "About Us"
 assert app.resolve_nav(None, None, "Methodology") == "Methodology"
 assert app.resolve_nav("Home", None, "Methodology") == "Home"
 assert app.resolve_nav(None, None, "../secrets") == "Home"
+assert app.resolve_nav(None, "Admin", None, app.USER_PAGES) == "Home"
+assert "Admin" not in app.pages_for("User")
+assert app.pages_for("Admin")[-1] == "Admin"
+assert app.authenticate("user", "aibootcamp") == "User"
+assert app.authenticate(" Admin ", "aibootcamp") == "Admin"
+assert app.authenticate("user", "wrong") is None
+assert app.authenticate("guest", "aibootcamp") is None
+assert app.DEFAULT_PASSWORD == "aibootcamp"
 
 for destination in app.HOME_DESTINATIONS.values():
     assert destination in app.PAGES

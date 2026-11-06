@@ -8,6 +8,7 @@ financial advice. Verify anything current or personal on the official sites.
 
 from __future__ import annotations
 
+import hmac
 import os
 import base64
 from pathlib import Path
@@ -34,7 +35,7 @@ IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".svg")
 # Skip a file above this size so an oversized photo cannot stall the page.
 MAX_RASTER_BYTES = 1_500_000
 
-PAGES = [
+USER_PAGES = [
     "Home",
     "Understand my scheme",
     "Care conversation",
@@ -42,6 +43,11 @@ PAGES = [
     "About Us",
     "Methodology",
 ]
+ADMIN_PAGE = "Admin"
+PAGES = USER_PAGES + [ADMIN_PAGE]
+# Demo sign-in for the bootcamp submission. Override with USER_PASSWORD or ADMIN_PASSWORD.
+DEFAULT_PASSWORD = "aibootcamp"
+GROUPS = {"user": "User", "admin": "Admin"}
 HOME_DESTINATIONS = {
     "coverage": "Understand my scheme",
     "care": "Care conversation",
@@ -192,14 +198,18 @@ CHAT_STARTERS = [
 
 
 def resolve_nav(
-    current: str | None, pending: str | None, query_page: str | None = None
+    current: str | None,
+    pending: str | None,
+    query_page: str | None = None,
+    allowed: list[str] | None = None,
 ) -> str:
     """Pick the visible page. A queued destination wins, then the current page, then a shared URL."""
-    if pending in PAGES:
+    pages = allowed if allowed is not None else PAGES
+    if pending in pages:
         return pending
-    if current in PAGES:
+    if current in pages:
         return current
-    if query_page in PAGES:
+    if query_page in pages:
         return query_page
     return "Home"
 
@@ -219,24 +229,84 @@ def get_secret(name: str) -> str:
         return ""
 
 
-def gate_if_configured() -> None:
-    password = get_secret("APP_PASSWORD")
-    if not password:
+def pages_for(group: str | None) -> list[str]:
+    """Pages a signed-in group may open. Admin includes the user pages plus Admin."""
+    if group == "Admin":
+        return list(PAGES)
+    return list(USER_PAGES)
+
+
+def account_password(username: str) -> str:
+    """Return the password for a demo account. Secrets override the bootcamp default."""
+    specific = "ADMIN_PASSWORD" if username == "admin" else "USER_PASSWORD"
+    return get_secret(specific) or get_secret("APP_PASSWORD") or DEFAULT_PASSWORD
+
+
+def authenticate(username: str, password: str) -> str | None:
+    """Return the group name when the username and password match, otherwise None."""
+    key = username.strip().lower()
+    group = GROUPS.get(key)
+    if group is None:
+        return None
+    expected = account_password(key)
+    entered = password if isinstance(password, str) else ""
+    if len(entered) != len(expected) or not hmac.compare_digest(entered, expected):
+        return None
+    return group
+
+
+def bump(name: str) -> None:
+    """Count a feature use in this browser session for the admin view."""
+    counts = st.session_state.setdefault(
+        "activity_counts", {"pathways": 0, "checklists": 0, "questions": 0}
+    )
+    counts[name] = int(counts.get(name, 0)) + 1
+
+
+def require_login() -> None:
+    """Stop the app until a User or Admin account has signed in."""
+    if st.session_state.get("auth_group") in {"User", "Admin"}:
         return
-    if st.session_state.get("authenticated"):
-        return
+    with st.sidebar:
+        st.markdown("## NaviCare")
+        st.caption("Sign in to use the journeys.")
     st.markdown(
-        '<div class="hero"><div class="eyebrow">Private educational prototype</div><h1>NaviCare</h1><p>Enter the access password configured by the project owner to continue.</p></div>',
+        '<div class="hero"><div class="eyebrow">Educational prototype</div><h1>Sign in to NaviCare</h1><p>The journeys, follow-up answers, and documentation stay behind this sign-in. Choose the user group or the admin group.</p></div>',
         unsafe_allow_html=True,
     )
-    entered = st.text_input("Access password", type="password")
-    if st.button("Continue", type="primary"):
-        if entered == password:
-            st.session_state["authenticated"] = True
-            st.rerun()
+    disclaimer()
+    st.write("")
+    with st.form("login_form"):
+        username = st.text_input("Username", placeholder="user or admin")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Sign in", type="primary")
+    st.caption("User group: username `user`. Admin group: username `admin`. Password: `aibootcamp`.")
+    if submitted:
+        group = authenticate(username, password)
+        if group is None:
+            st.error("That username or password does not match. Use user or admin, and the bootcamp password.")
         else:
-            st.error("Incorrect password.")
+            st.session_state["auth_user"] = username.strip().lower()
+            st.session_state["auth_group"] = group
+            st.session_state["nav"] = "Home"
+            st.rerun()
     st.stop()
+
+
+def sign_out() -> None:
+    """Clear the signed-in session, including journey results from this browser."""
+    for key in (
+        "auth_group",
+        "auth_user",
+        "nav",
+        "pending_page",
+        "chat_messages",
+        "coverage_result",
+        "care_result",
+        "activity_counts",
+    ):
+        st.session_state.pop(key, None)
+    st.rerun()
 
 
 def disclaimer(expanded: bool = True) -> None:
@@ -327,6 +397,7 @@ def queue_page(page: str) -> None:
 
 
 def apply_pending_navigation() -> None:
+    allowed = pages_for(st.session_state.get("auth_group"))
     pending = st.session_state.pop("pending_page", None)
     query_page = None
     try:
@@ -338,6 +409,7 @@ def apply_pending_navigation() -> None:
         current if isinstance(current, str) else None,
         pending if isinstance(pending, str) else None,
         query_page,
+        allowed,
     )
 
 
@@ -555,6 +627,7 @@ def render_coverage() -> None:
         )
     if submitted:
         st.session_state["coverage_result"] = coverage_output(birth_band, focus, role)
+        bump("pathways")
     if "coverage_result" in st.session_state:
         result = st.session_state["coverage_result"]
         st.write("")
@@ -734,6 +807,7 @@ def render_care() -> None:
         )
     if submitted:
         st.session_state["care_result"] = care_output(audience, task, destination)
+        bump("checklists")
     if "care_result" in st.session_state:
         result = st.session_state["care_result"]
         st.write("")
@@ -938,6 +1012,7 @@ CARE_LLM_MODEL = "gpt-4o-mini"
     typed = st.chat_input("Ask a general CareShield Life or ElderShield question…")
     prompt = typed or st.session_state.pop("pending_chat_prompt", None)
     if prompt:
+        bump("questions")
         st.session_state["chat_messages"].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -1021,13 +1096,17 @@ def render_about() -> None:
                 "Documentation",
                 "About Us and Methodology pages explain the scope, data flow, limitations, and use-case flow diagrams.",
             ],
+            [
+                "Sign-in",
+                "A user group can use the journeys. An admin group can also open the session overview.",
+            ],
         ],
         columns=["Feature", "Description"],
     )
     st.dataframe(features, width="stretch", hide_index=True)
     st.markdown("### Privacy and safety")
     st.write(
-        "The guided tools do not require login, a database, or personal information. Follow-up answers use a fixed public-source context. When OPENAI_API_KEY is set, the language model also receives only the current conversation plus that context. Set APP_PASSWORD in Streamlit secrets if the submitted prototype should ask for a password, and share that password only in the bootcamp submission form. Users must not submit sensitive information."
+        "Sign-in is required before any journey. The demo accounts are user and admin, both with the bootcamp password. Nothing about a person is stored: the password check and the session counts stay in this browser session. Follow-up answers use a fixed public-source context. When OPENAI_API_KEY is set, the language model also receives only the current conversation plus that context. Do not submit sensitive information."
     )
     with st.expander("Required prototype disclaimer"):
         st.warning(DISCLAIMER)
@@ -1042,6 +1121,7 @@ def render_methodology() -> None:
     st.markdown("### Overall data flow")
     render_flow(
         [
+            "Sign in as User or Admin",
             "Choose a journey",
             "Broad, non-identifying inputs",
             "Educational rules",
@@ -1077,7 +1157,7 @@ def render_methodology() -> None:
     )
     st.markdown("### How the pieces are implemented")
     st.write(
-        "The interface, the two forms, the tables, and the visual guides live in `app.py`. There is no database. Broad form choices stay in the browser session and are turned into prompts by `coverage_output` and `care_output`. Follow-up answers use `builtin_reply`, which matches the question to the same public notes stored in `SOURCE_CONTEXT`."
+        "The interface, the two forms, the tables, and the visual guides live in `app.py`. There is no database and no saved user list. `authenticate` checks the username against the User or Admin group and compares the password with `aibootcamp`, unless `USER_PASSWORD` or `ADMIN_PASSWORD` is set in secrets. Broad form choices stay in the browser session and are turned into prompts by `coverage_output` and `care_output`. Follow-up answers use `builtin_reply`, which matches the question to the same public notes stored in `SOURCE_CONTEXT`."
     )
     st.markdown("### Chatbot implementation")
     st.write(
@@ -1112,6 +1192,54 @@ def render_methodology() -> None:
     st.dataframe(limitations, width="stretch", hide_index=True)
 
 
+def render_admin() -> None:
+    """Session overview for the admin group. It does not store or show personal data."""
+    page_header(
+        "Admin group",
+        "Session overview",
+        "This page is only on the admin menu. It shows which group can open which page, and how many journeys were built in this browser session.",
+    )
+    user = st.session_state.get("auth_user", "admin")
+    st.markdown(
+        f'<div class="card"><div class="metric-label">Signed in</div><div class="metric-value">{user}</div><p>Admin group. The user group uses the same password and cannot open this page.</p></div>',
+        unsafe_allow_html=True,
+    )
+    st.write("")
+    counts = st.session_state.get(
+        "activity_counts", {"pathways": 0, "checklists": 0, "questions": 0}
+    )
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Scheme pathways", int(counts.get("pathways", 0)))
+    c2.metric("Care checklists", int(counts.get("checklists", 0)))
+    c3.metric("Follow-up questions", int(counts.get("questions", 0)))
+    st.caption("These numbers count actions in this signed-in session. They are not a coverage score and they are not saved after sign-out.")
+    st.markdown("#### Who can open what")
+    access = pd.DataFrame(
+        [
+            ["Home", "User and Admin", "Disclaimer, two journeys, official links"],
+            ["Understand my scheme", "User and Admin", "Form, comparison table, joining and activity visuals"],
+            ["Care conversation", "User and Admin", "Form, checklist, destination visual"],
+            ["Ask NaviCare", "User and Admin", "Follow-up answers from the official notes"],
+            ["About Us", "User and Admin", "Scope, objectives, sources, features"],
+            ["Methodology", "User and Admin", "Data flow and one flowchart per use case"],
+            ["Admin", "Admin only", "This session overview"],
+        ],
+        columns=["Page", "Group", "What it is for"],
+    )
+    st.dataframe(access, width="stretch", hide_index=True)
+    st.markdown("#### Official sources linked from the app")
+    st.dataframe(
+        pd.DataFrame(
+            [{"Source": source["label"], "Page": source["url"]} for source in OFFICIAL_SOURCES]
+        ),
+        width="stretch",
+        hide_index=True,
+    )
+    st.info(
+        "Sign-in does not create an account record. Do not enter a real NRIC, medical record, or CPF balance anywhere in NaviCare."
+    )
+
+
 def render_footer() -> None:
     st.divider()
     links = " ".join(
@@ -1126,13 +1254,17 @@ def render_footer() -> None:
 
 def render_sidebar() -> str:
     apply_pending_navigation()
+    group = str(st.session_state.get("auth_group") or "User")
+    allowed = pages_for(group)
     with st.sidebar:
         logo = image_file("navicare_logo_mark")
         if logo is not None:
             st.image(str(logo), width=64)
         st.markdown("## NaviCare")
-        st.caption("Understand care protection. Verify always.")
-        st.radio("Navigate", PAGES, key="nav", label_visibility="collapsed")
+        st.caption(f"{st.session_state.get('auth_user', '')} · {group} group")
+        st.radio("Navigate", allowed, key="nav", label_visibility="collapsed")
+        if st.button("Sign out", width="stretch"):
+            sign_out()
         st.divider()
         st.markdown("### Official sources")
         for source in OFFICIAL_SOURCES:
@@ -1162,7 +1294,7 @@ def main() -> None:
     )
     inject_css()
     render_brand_bar()
-    gate_if_configured()
+    require_login()
     page = render_sidebar()
     if page == "Home":
         render_home()
@@ -1176,6 +1308,8 @@ def main() -> None:
         render_about()
     elif page == "Methodology":
         render_methodology()
+    elif page == ADMIN_PAGE and st.session_state.get("auth_group") == "Admin":
+        render_admin()
     else:
         st.session_state["nav"] = "Home"
         render_home()

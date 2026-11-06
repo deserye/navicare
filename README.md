@@ -12,6 +12,8 @@ NaviCare is an educational Streamlit app for understanding Singapore’s CareShi
 
 **Ask NaviCare** answers follow-up questions from the same official-source notes. Those answers work with no API key. If `OPENAI_API_KEY` is set, the page uses a language model for the same kind of question and still tells the reader to verify the answer.
 
+Sign-in is required before any page. The **user** group can use both journeys, follow-up answers, About Us, and Methodology. The **admin** group can do that and also open a session overview. Demo usernames are `user` and `admin`. The password for both is `aibootcamp`.
+
 **About Us** and **Methodology** explain the scope, the two journeys, and the limits of the prototype.
 
 Illustrations are image files in [`assets/`](assets/), next to [`app.py`](app.py). Streamlit loads them from that folder.
@@ -60,17 +62,16 @@ The app defaults to `gpt-4o-mini` and uses standard chat-completion fields. If y
 
 If a previous copy of this project included a real API key, rotate that key. Put the new key only in Streamlit secrets or your local ignored secrets file.
 
-## Optional password gate
+## Sign-in
 
-Add this to `.streamlit/secrets.toml` when the deployed app should ask for a password:
+Every feature sits behind the sign-in page. Use these demo accounts when you submit the app:
 
-```toml
-APP_PASSWORD = "your-private-app-password"
-```
+| Group | Username | Password |
+| --- | --- | --- |
+| User | `user` | `aibootcamp` |
+| Admin | `admin` | `aibootcamp` |
 
-Leave it unset for a public educational app. Do not hardcode the password in `app.py`.
-
-For a bootcamp submission, set `APP_PASSWORD` in Streamlit Community Cloud secrets and type that same password into the LaunchPad form. Do not put the password in GitHub.
+Put that password in the LaunchPad form with the Streamlit URL. To use a different password on the hosted app, set `USER_PASSWORD` and `ADMIN_PASSWORD` in Streamlit secrets. If those are unset, the app keeps `aibootcamp`.
 
 ## Bootcamp submission checklist
 
@@ -83,13 +84,14 @@ What the app already includes:
 - The required disclaimer on **Home**, under “Important prototype notice”.
 - **About Us** (scope, objectives, data sources, features) and **Methodology** (data flow, implementation, and a flowchart for each use case).
 - Links only to public CPF Board, MOH, and AIC pages.
+- Sign-in before the features, with a user group and an admin group. The demo password is `aibootcamp`.
 
 What you still submit yourself:
 
 1. Deploy the app on [Streamlit Community Cloud](https://share.streamlit.io/) from your GitHub repository (`main`, main file `app.py`).
-2. In the app’s **Settings → Secrets**, set `APP_PASSWORD` if you want the recommended password gate. Add `OPENAI_API_KEY` only if you also want model answers.
-3. In LaunchPad, open the Ideate tab, edit the idea, and fill Proposed Solution with the title, a short description, the Streamlit URL, the password if you set one, the project type tag, and the team members.
-4. Open the live URL and check Home, both journeys, Ask NaviCare, About Us, and Methodology before you submit.
+2. In LaunchPad, open the Ideate tab, edit the idea, and fill Proposed Solution with the title, a short description, the Streamlit URL, the password `aibootcamp`, the project type tag, and the team members.
+3. Add `OPENAI_API_KEY` in **Settings → Secrets** only if you also want model answers.
+4. Open the live URL, sign in as `user` and as `admin`, and check both journeys, Ask NaviCare, About Us, and Methodology before you submit.
 
 ## Pictures
 
@@ -155,7 +157,7 @@ OPENAI_API_KEY = "your-secret-key"
 CARE_LLM_MODEL = "gpt-4o-mini"
 ```
 
-Add `APP_PASSWORD` only if you want the password gate. Save. If the app does not reload, use **Manage app → Reboot**.
+The sign-in password is already `aibootcamp` for `user` and `admin`. Add `OPENAI_API_KEY` only if you want model answers. Save. If the app does not reload, use **Manage app → Reboot**.
 
 Later changes are deployed by pushing to `main`:
 
