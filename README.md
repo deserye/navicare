@@ -119,6 +119,18 @@ python scripts/optimize_assets.py \
 
 That writes `assets/navicare_hero.jpg`, `assets/navicare_scheme.jpg`, `assets/navicare_conversation.jpg`, and `assets/navicare_logo_mark.png`, each under 400 KB. A `.jpg` with the same name is used instead of the `.png`.
 
+## What is in NaviCare.zip
+
+The zip is only the app Streamlit runs:
+
+- `app.py` and `rag.py`
+- `requirements.txt`
+- `assets/`
+- `data/samples/`
+- `.streamlit/`
+
+The presentation is the separate file `NaviCare_presentation.pptx`. Tests and helper scripts are not in the zip.
+
 ## Deploy on GitHub, then host on Streamlit
 
 Streamlit Community Cloud runs the app from a GitHub repository. After the first connection, every push to the deployed branch updates the hosted app.
