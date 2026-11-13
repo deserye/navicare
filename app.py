@@ -955,6 +955,19 @@ def builtin_reply(question: str) -> str:
     return "\n\n".join(seen) + "\n\n" + VERIFY_LINE
 
 
+def retrieved_context(question: str) -> str:
+    """Join the closest FAISS passages so an answer can name where it looked."""
+    try:
+        import rag
+
+        rows = rag.retrieve(question, k=3)
+    except Exception:
+        return ""
+    if not rows:
+        return ""
+    return "\n\n".join(f"{row['name']}: {row['text']}" for row in rows)
+
+
 def assistant_reply(messages: list[dict[str, str]]) -> str:
     """Answer a follow-up. Use the language model only when a key and client exist."""
     api_key = get_secret("OPENAI_API_KEY")
@@ -974,6 +987,8 @@ def assistant_reply(messages: list[dict[str, str]]) -> str:
             "Do not diagnose disability, interpret a medical assessment, decide coverage or eligibility, predict claim approval, calculate a personal payout, recommend a supplement, or rank private insurers. "
             "For personal or current questions, direct the user to CPF Board, MOH, or AIC official services. Include a short 'Verify with CPF Board, MOH, or AIC' reminder in every answer.\n\n"
             + SOURCE_CONTEXT
+            + "\n\nPassages retrieved from the project notes:\n"
+            + (retrieved_context(latest_user_text(messages)) or "No passage was retrieved.")
         ),
     }
     request_kwargs: dict[str, Any] = {
@@ -1049,8 +1064,32 @@ CARE_LLM_MODEL = "gpt-4o-mini"
                 except Exception:
                     answer = "The chatbot could not connect. Please use the guided tools and verify information with CPF Board, MOH, or AIC."
             st.markdown(answer)
+            passages = []
+            try:
+                import rag
+
+                passages = rag.retrieve(prompt, k=3)
+            except Exception:
+                passages = []
+            if passages:
+                with st.expander("Passages retrieved for this question", expanded=True):
+                    for row in passages:
+                        st.markdown(f"**{row['name']}** · {row['kind']}")
+                        st.write(row["text"])
         st.session_state["chat_messages"].append(
             {"role": "assistant", "content": answer}
+        )
+    answers = [
+        message["content"]
+        for message in st.session_state.get("chat_messages", [])
+        if message["role"] == "assistant"
+    ]
+    if answers:
+        st.download_button(
+            "Download the latest answer",
+            answers[-1],
+            file_name="navicare_answer.txt",
+            mime="text/plain",
         )
     st.write("")
     source_strip(
@@ -1187,7 +1226,7 @@ def render_methodology() -> None:
     )
     st.markdown("### Chatbot implementation")
     st.write(
-        "Ask NaviCare answers follow-up questions without a key by using those public notes, and every answer ends with a reminder to verify with CPF Board, MOH, or AIC. When `OPENAI_API_KEY` is set, the same page calls a language model with a fixed source context and the most recent conversation turns. The model name is `CARE_LLM_MODEL`, defaulting to gpt-4o-mini. The request uses standard chat-completion fields and omits provider-specific reasoning parameters. The key is read only from the server environment or Streamlit secrets."
+        "Ask NaviCare retrieves the closest passages from the sample notes, and from any text an admin has uploaded, using a FAISS index. No embedding API is required for that search. The built-in explainer answers from the same public notes when no key is set, and every answer ends with a reminder to verify with CPF Board, MOH, or AIC. When `OPENAI_API_KEY` is set, the language model also receives those retrieved passages, the fixed source context, and the most recent conversation turns. The model name is `CARE_LLM_MODEL`, defaulting to gpt-4o-mini. The request uses standard chat-completion fields. The key is read only from the server environment or Streamlit secrets. Model use is documented here: retrieval is local; a chat completion is sent only when a key exists."
     )
     st.markdown("### Limitations")
     limitations = pd.DataFrame(
@@ -1261,6 +1300,30 @@ def render_admin() -> None:
         width="stretch",
         hide_index=True,
     )
+    st.markdown("#### Document notes for retrieval")
+    st.write(
+        "The sample notes are already in the FAISS index. An admin can add a .txt or .md note. Users then see matching passages in Ask NaviCare. Do not upload personal, medical, or account records."
+    )
+    try:
+        import rag
+
+        upload = st.file_uploader("Add a text note", type=["txt", "md"])
+        if upload is not None and st.button("Add this note to retrieval", type="primary"):
+            saved = rag.save_upload(
+                upload.name, upload.getvalue().decode("utf-8", errors="replace")
+            )
+            st.success(f"Added {saved}. Ask NaviCare can retrieve it on the next question.")
+        documents = rag.list_documents()
+        if documents:
+            st.dataframe(pd.DataFrame(documents), width="stretch", hide_index=True)
+        uploads = [row["File"] for row in documents if row["Kind"] == "upload"]
+        if uploads:
+            choice = st.selectbox("Uploaded note to remove", uploads)
+            if st.button("Remove uploaded note"):
+                rag.delete_upload(choice)
+                st.rerun()
+    except Exception:
+        st.warning("The document index could not be read. The sample notes should still be in data/samples.")
     st.info(
         "Sign-in does not create an account record. Do not enter a real NRIC, medical record, or CPF balance anywhere in NaviCare."
     )

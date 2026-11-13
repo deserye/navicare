@@ -12,7 +12,13 @@ NaviCare is an educational Streamlit app for understanding Singapore’s CareShi
 
 **Ask NaviCare** answers follow-up questions from the same official-source notes. Those answers work with no API key. If `OPENAI_API_KEY` is set, the page uses a language model for the same kind of question and still tells the reader to verify the answer.
 
-**Home**, **About Us**, and **Methodology** are open without a password. **Understand my scheme**, **Care conversation**, and **Ask NaviCare** ask the visitor to sign in. The user account opens those three. The admin account opens those three and an Admin page. Demo usernames are `user` and `admin`. The password for both is `aibootcamp`.
+**Home**, **About Us**, and **Methodology** are open without a password. **Understand my scheme**, **Care conversation**, and **Ask NaviCare** ask the visitor to sign in. The user account opens those three. The admin account opens those three and an Admin page, including the sample notes and any text file the admin adds. Demo usernames are `user` and `admin`. The password for both is `aibootcamp`.
+
+Ask NaviCare retrieves the closest passages with FAISS from the notes in `data/samples/`. A language model is used only when `OPENAI_API_KEY` is set.
+
+## Team presentation
+
+[`NaviCare_presentation.pptx`](NaviCare_presentation.pptx) is the 12-slide deck for a team of three. It covers background, motivation, audience, the technology stack, and a click-by-click product demo. Each slide has speaker notes. Replace Member 1, Member 2, and Member 3 with your names before you present.
 
 Illustrations are image files in [`assets/`](assets/), next to [`app.py`](app.py). Streamlit loads them from that folder.
 

@@ -43,6 +43,19 @@ assert app.authenticate("user", "wrong") is None
 assert app.authenticate("guest", "aibootcamp") is None
 assert app.DEFAULT_PASSWORD == "aibootcamp"
 
+import rag
+
+efass_hits = rag.retrieve("Where does a caregiver read about eFASS documents?", k=2)
+assert efass_hits
+assert any("eFASS" in hit["text"] for hit in efass_hits)
+adl_hits = rag.retrieve("What are the six activities of daily living?", k=2)
+assert any("Washing" in hit["text"] for hit in adl_hits)
+assert rag.retrieve("") == []
+saved = rag.save_upload("team-note.txt", "Hawkers need a separate process. This note is only a retrieval test.")
+assert saved == "team-note.txt"
+assert any(row["File"] == "team-note.txt" for row in rag.list_documents())
+assert rag.delete_upload("team-note.txt")
+
 for destination in app.HOME_DESTINATIONS.values():
     assert destination in app.PAGES
 for page in app.PAGES:
