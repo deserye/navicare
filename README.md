@@ -60,7 +60,7 @@ OPENAI_API_KEY = "your-secret-key"
 CARE_LLM_MODEL = "gpt-4o-mini"
 ```
 
-You can also set those names as environment variables for one terminal session. Streamlit reads secrets from `.streamlit/secrets.toml`, not from a file in the project root. `.streamlit/secrets.toml` is gitignored.
+You can also copy [`.env.example`](.env.example) to `.env` in the project folder. The app loads that file with `load_dotenv()` and reads the names with `os.getenv`. `.env` is gitignored. On Streamlit Community Cloud, use Settings → Secrets instead, because a `.env` file is not uploaded there.
 
 The app defaults to `gpt-4o-mini` and uses standard chat-completion fields. If your account uses a different model, set `CARE_LLM_MODEL`. Set `OPENAI_API_BASE` only for an OpenAI-compatible endpoint.
 
@@ -123,7 +123,7 @@ That writes `assets/navicare_hero.jpg`, `assets/navicare_scheme.jpg`, `assets/na
 
 The zip is only the app Streamlit runs:
 
-- `app.py` and `rag.py`
+- `app.py`, `rag.py`, `rag_pipeline.py`, and `utility.py`
 - `requirements.txt`
 - `assets/`
 - `data/samples/`

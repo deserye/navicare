@@ -1,8 +1,13 @@
-"""Retrieve short passages from the sample notes and admin uploads.
+"""Retrieve notes for Ask NaviCare.
 
-The index is a FAISS inner-product index over normalised term vectors.
-Retrieval does not call an external embedding API, so Ask NaviCare can show
-source passages when no model key is configured.
+The embeddings lesson compares texts with cosine similarity. This file does that
+with a FAISS inner-product index over normalised term vectors, so search works
+with no embedding API.
+
+The retrieval lesson improves on a single flat chunk. Each note is split into a
+larger parent chunk, then into smaller child chunks. Search uses the children.
+The parent is what the answer is allowed to use, so the reply keeps the
+surrounding context.
 """
 
 from __future__ import annotations
@@ -29,20 +34,25 @@ def _tokenize(text: str) -> list[str]:
     return TOKEN.findall(text.lower())
 
 
-def _chunks(text: str, size: int = 700) -> list[str]:
+def redact_personal_data(text: str) -> str:
+    """Strip obvious personal details before a note is stored.
+
+    A real government dataset should go through CLOAK (cloak.gov.sg) first.
+    This prototype only removes NRIC-style numbers and email addresses.
+    """
+    cleaned = re.sub(r"\b[STFGM]\d{7}[A-Z]\b", "[NRIC removed]", text, flags=re.I)
+    cleaned = re.sub(r"\b[\w.+-]+@[\w.-]+\.\w+\b", "[email removed]", cleaned)
+    return cleaned
+
+
+def _chunks(text: str, size: int = 800, overlap: int = 100) -> list[str]:
+    """Split on paragraphs, then overlap chunks the way the RAG practical does."""
+    from rag_pipeline import _split_text
+
     paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
-    pieces: list[str] = []
-    current = ""
-    for paragraph in paragraphs:
-        if len(current) + len(paragraph) + 2 <= size:
-            current = f"{current}\n\n{paragraph}".strip()
-        else:
-            if current:
-                pieces.append(current)
-            current = paragraph[:size]
-    if current:
-        pieces.append(current)
-    return pieces or [text.strip()]
+    if not paragraphs:
+        return _split_text(text, size, overlap)
+    return _split_text("\n\n".join(paragraphs), size, overlap)
 
 
 def _read_documents() -> list[dict[str, str]]:
@@ -60,22 +70,28 @@ def _read_documents() -> list[dict[str, str]]:
 
 
 def _passages() -> list[dict[str, str]]:
+    """Parent chunks for context, child chunks for the similarity search."""
     rows: list[dict[str, str]] = []
     for document in _read_documents():
-        for index, chunk in enumerate(_chunks(document["text"]), start=1):
-            rows.append(
-                {
-                    "name": document["name"],
-                    "kind": document["kind"],
-                    "part": str(index),
-                    "text": chunk,
-                }
-            )
+        parents = _chunks(document["text"], size=800, overlap=100)
+        for parent_index, parent in enumerate(parents, start=1):
+            children = _chunks(parent, size=220, overlap=40) or [parent]
+            for child_index, child in enumerate(children, start=1):
+                rows.append(
+                    {
+                        "name": document["name"],
+                        "kind": document["kind"],
+                        "part": str(parent_index),
+                        "child": str(child_index),
+                        "text": parent,
+                        "search_text": child,
+                    }
+                )
     return rows
 
 
 def _vectors(passages: list[dict[str, str]]) -> tuple[np.ndarray, dict[str, float]]:
-    tokenised = [_tokenize(row["text"]) for row in passages]
+    tokenised = [_tokenize(row.get("search_text") or row["text"]) for row in passages]
     document_frequency: dict[str, int] = {}
     for tokens in tokenised:
         for token in set(tokens):
@@ -116,8 +132,13 @@ def _query_vector(query: str, weights: dict[str, float], width: int) -> np.ndarr
     return vector
 
 
-def retrieve(query: str, k: int = 3) -> list[dict[str, str]]:
-    """Return the closest sample or uploaded passages for a question."""
+def retrieve(query: str, k: int = 3, min_score: float = 0.05) -> list[dict[str, str]]:
+    """Return parent passages whose child chunks are closest to the question.
+
+    Children are ranked by cosine similarity. A weak score is dropped, because a
+    similar wording is not always a relevant note. Each parent is returned once,
+    with the strongest child first.
+    """
     question = (query or "").strip()
     if not question:
         return []
@@ -129,21 +150,35 @@ def retrieve(query: str, k: int = 3) -> list[dict[str, str]]:
     if faiss is not None:
         index = faiss.IndexFlatIP(matrix.shape[1])
         index.add(matrix)
-        scores, ids = index.search(query_vector, min(k, len(passages)))
+        scores, ids = index.search(query_vector, len(passages))
         chosen = [int(item) for item in ids[0] if int(item) >= 0]
         score_values = [float(item) for item in scores[0]]
     else:
         scores_row = (matrix @ query_vector.T).reshape(-1)
-        chosen = list(np.argsort(-scores_row)[:k])
+        chosen = list(np.argsort(-scores_row))
         score_values = [float(scores_row[item]) for item in chosen]
-    results: list[dict[str, str]] = []
+    best: dict[tuple[str, str], dict[str, str]] = {}
     for passage_id, score in zip(chosen, score_values):
-        if score <= 0:
+        if score < min_score:
             continue
-        row = dict(passages[passage_id])
-        row["score"] = f"{score:.3f}"
-        results.append(row)
-    return results
+        source = passages[passage_id]
+        key = (source["name"], source["part"])
+        if key in best:
+            continue
+        child = source["search_text"].strip()
+        parent = source["text"].strip()
+        # The post-retrieval lesson puts the most relevant lines first.
+        ordered = child if child == parent else f"{child}\n\n{parent}"
+        best[key] = {
+            "name": source["name"],
+            "kind": source["kind"],
+            "part": source["part"],
+            "text": ordered,
+            "score": f"{score:.3f}",
+        }
+        if len(best) >= k:
+            break
+    return list(best.values())
 
 
 def list_documents() -> list[dict[str, str]]:
@@ -166,7 +201,7 @@ def save_upload(filename: str, text: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip(".-") or "note.txt"
     if not safe.lower().endswith((".txt", ".md")):
         safe = f"{safe}.txt"
-    cleaned = text.strip()[:MAX_UPLOAD_CHARS]
+    cleaned = redact_personal_data(text).strip()[:MAX_UPLOAD_CHARS]
     if not cleaned:
         raise ValueError("The uploaded file is empty.")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

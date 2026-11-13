@@ -220,6 +220,17 @@ def inject_css() -> None:
 
 
 def get_secret(name: str) -> str:
+    """Read a credential from the environment, a .env file, or Streamlit secrets.
+
+    The credentials lesson uses load_dotenv() and os.getenv. Nothing is written
+    into the source file.
+    """
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(PROJECT_DIR / ".env")
+    except Exception:
+        pass
     value = os.getenv(name, "").strip()
     if value:
         return value
@@ -266,39 +277,10 @@ def bump(name: str) -> None:
 
 
 def render_login() -> None:
-    """Ask for a user or admin sign-in. Public pages stay available from the sidebar."""
-    destination = st.session_state.get("after_login")
-    if destination in FEATURE_PAGES or destination == ADMIN_PAGE:
-        intro = f"Sign in to open {destination}. Home, About Us, and Methodology stay open without a password."
-    else:
-        intro = "Sign in to use Understand my scheme, Care conversation, and Ask NaviCare. Home, About Us, and Methodology stay open without a password."
-    st.markdown(
-        f'<div class="hero"><div class="eyebrow">Educational prototype</div><h1>Sign in to NaviCare</h1><p>{intro}</p></div>',
-        unsafe_allow_html=True,
-    )
-    st.write("")
-    with st.form("login_form"):
-        username = st.text_input("Username", placeholder="user or admin")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Sign in", type="primary")
-    st.caption("User: username `user`. Admin: username `admin`. Password: `aibootcamp`.")
-    if st.button("Back to the open pages"):
-        st.session_state["login_open"] = False
-        st.session_state.pop("after_login", None)
-        st.rerun()
-    if submitted:
-        group = authenticate(username, password)
-        if group is None:
-            st.error("That username or password does not match. Use user or admin, and the password aibootcamp.")
-        else:
-            st.session_state["auth_user"] = username.strip().lower()
-            st.session_state["auth_group"] = group
-            st.session_state["login_open"] = False
-            next_page = st.session_state.pop("after_login", None)
-            st.session_state["pending_page"] = (
-                next_page if next_page in pages_for(group) else "Home"
-            )
-            st.rerun()
+    """Show the lesson password gate. Public pages stay available from the sidebar."""
+    from utility import check_password
+
+    check_password()
 
 
 def sign_out() -> None:
@@ -945,9 +927,7 @@ def builtin_reply(question: str) -> str:
             "MOH explains that supplements add coverage on top of a basic CareShield Life or ElderShield plan, and that plans differ. Use the official comparison materials and contact the insurer for a product-specific question. CPF Board’s pages discuss MediSave payment, subsidies, premium support, and a premium-check service. Do not type an exact premium or account balance into this prototype."
         )
     if not sections:
-        sections.append(
-            "NaviCare can explain CareShield Life, ElderShield, the six activities of daily living, supplements, and where to read about applications. It cannot check a person’s cover, interpret a medical report, or calculate a payout. Ask a general question, or use Understand my scheme and Care conversation for a guided pathway."
-        )
+        sections.append("I couldn't find that information in the notes.")
     seen: list[str] = []
     for section in sections:
         if section not in seen:
@@ -968,46 +948,58 @@ def retrieved_context(question: str) -> str:
     return "\n\n".join(f"{row['name']}: {row['text']}" for row in rows)
 
 
-def assistant_reply(messages: list[dict[str, str]]) -> str:
-    """Answer a follow-up. Use the language model only when a key and client exist."""
+def assistant_reply(
+    messages: list[dict[str, str]],
+    model: str | None = None,
+    temperature: float = 0.0,
+    extra_instruction: str = "",
+) -> str:
+    """Answer a follow-up. Use the language model only when a key and client exist.
+
+    The system prompt is the one from the RAG practical: answer only from the
+    retrieved notes. Researcher finds the notes. Explainer writes the reply.
+    """
+    question = latest_user_text(messages)
     api_key = get_secret("OPENAI_API_KEY")
     if not api_key or OpenAI is None:
-        return builtin_reply(latest_user_text(messages))
+        return builtin_reply(question)
+    from rag_pipeline import build_rag_system_prompt, fit_messages
+
+    chosen_model = model or get_secret("CARE_LLM_MODEL") or get_secret("CPF_LLM_MODEL") or "gpt-4o-mini"
     base_url = get_secret("OPENAI_API_BASE") or None
-    model = get_secret("CARE_LLM_MODEL") or get_secret("CPF_LLM_MODEL") or "gpt-4o-mini"
     client_kwargs: dict[str, Any] = {"api_key": api_key}
     if base_url:
         client_kwargs["base_url"] = base_url
     client = OpenAI(**client_kwargs)
     system = {
         "role": "system",
-        "content": (
-            "You are NaviCare, a concise educational explainer for Singapore long-term-care protection. "
-            "Use only the official source context below. Do not request or process medical records, diagnoses, NRIC numbers, account numbers, exact balances, addresses, or other personal data. "
-            "Do not diagnose disability, interpret a medical assessment, decide coverage or eligibility, predict claim approval, calculate a personal payout, recommend a supplement, or rank private insurers. "
-            "For personal or current questions, direct the user to CPF Board, MOH, or AIC official services. Include a short 'Verify with CPF Board, MOH, or AIC' reminder in every answer.\n\n"
-            + SOURCE_CONTEXT
-            + "\n\nPassages retrieved from the project notes:\n"
-            + (retrieved_context(latest_user_text(messages)) or "No passage was retrieved.")
+        "content": build_rag_system_prompt(
+            retrieved_context(question) or "No passage was retrieved.",
+            question,
+            extra_instruction,
         ),
     }
-    request_kwargs: dict[str, Any] = {
-        "model": model,
-        "messages": [system] + messages[-8:],
-        "max_tokens": 700,
-    }
-    response = client.chat.completions.create(**request_kwargs)
-    return (
-        response.choices[0].message.content
-        or "I could not produce an answer. Please verify the information with CPF Board, MOH, or AIC."
-    )
+    try:
+        response = client.chat.completions.create(
+            model=chosen_model,
+            messages=fit_messages(system["content"], messages[-12:], chosen_model),
+            max_tokens=700,
+            temperature=temperature,
+            n=1,
+        )
+        return (
+            response.choices[0].message.content
+            or "I could not produce an answer. Please verify the information with CPF Board, MOH, or AIC."
+        )
+    except Exception:
+        return builtin_reply(question)
 
 
 def render_chatbot() -> None:
     page_header(
         "03 · Optional chatbot",
         "Ask NaviCare",
-        "Ask about concepts, public processes, and where to read next. The chatbot is source-grounded but can still be wrong, so verify every answer with the official agency.",
+        "Ask about concepts, public processes, and where to read next. A model can sound sure and still be wrong, so verify every answer with the official agency.",
     )
     st.markdown(
         '<div class="notice"><strong>Privacy boundary.</strong> Ask general questions only. Do not enter a diagnosis, medical record, NRIC number, account number, exact balance, address, or other identifying information.</div>',
@@ -1015,6 +1007,23 @@ def render_chatbot() -> None:
     )
     st.write("")
     disclaimer(expanded=False)
+    st.caption(
+        "The model has no memory of its own. Each question resends the recent turns, and older turns are left out once the message gets long. One answer is requested. Temperature starts at 0."
+    )
+    with st.sidebar:
+        st.header("Answer settings")
+        st.text_area(
+            "System prompt",
+            value="Answer only from the retrieved CareShield Life and ElderShield notes.",
+            key="system_prompt_note",
+            help="Added under the fixed rules. It cannot replace them. The template is in rag_pipeline.py.",
+        )
+        st.selectbox("Model", ["gpt-4o-mini", "gpt-4o"], key="chat_model")
+        st.slider("Temperature", 0.0, 2.0, 0.0, key="chat_temperature", help="0 keeps the wording steadier. A higher value varies it. This call does not also set top_p.")
+        st.slider("Chunks to retrieve (k)", 1, 8, 3, key="chat_k")
+        if st.button("Clear conversation"):
+            st.session_state["chat_messages"] = []
+            st.rerun()
     if not get_secret("OPENAI_API_KEY"):
         st.info(
             "Follow-up answers on this page work with no key. They come from the same official-source notes as the guided journeys. A language model is used only after OPENAI_API_KEY is saved outside this page."
@@ -1058,37 +1067,48 @@ CARE_LLM_MODEL = "gpt-4o-mini"
         with st.chat_message("user"):
             st.markdown(prompt)
         with st.chat_message("assistant"):
-            with st.spinner("Checking the official-source context…"):
-                try:
-                    answer = assistant_reply(st.session_state["chat_messages"])
-                except Exception:
-                    answer = "The chatbot could not connect. Please use the guided tools and verify information with CPF Board, MOH, or AIC."
-            st.markdown(answer)
-            passages = []
+            k_value = int(st.session_state.get("chat_k", 3))
             try:
                 import rag
 
-                passages = rag.retrieve(prompt, k=3)
+                passages = rag.retrieve(prompt, k=k_value)
             except Exception:
                 passages = []
-            if passages:
-                with st.expander("Passages retrieved for this question", expanded=True):
+            with st.spinner("Checking the notes…"):
+                try:
+                    answer = assistant_reply(
+                        st.session_state["chat_messages"],
+                        model=st.session_state.get("chat_model"),
+                        temperature=float(st.session_state.get("chat_temperature", 0.0)),
+                        extra_instruction=str(st.session_state.get("system_prompt_note", "")),
+                    )
+                except Exception:
+                    answer = "The chatbot could not connect. Please use the guided tools and verify information with CPF Board, MOH, or AIC."
+            st.markdown(answer)
+            with st.expander("View sources", expanded=bool(passages)):
+                st.markdown(
+                    "1. Decide what the question is about. "
+                    "2. Retrieve the closest notes. "
+                    "3. Write the answer from those notes only."
+                )
+                if passages:
                     for row in passages:
-                        st.markdown(f"**{row['name']}** · {row['kind']}")
+                        st.markdown(f"**{row['name']}** · {row['kind']} · score {row['score']}")
                         st.write(row["text"])
+                else:
+                    st.write("No note was close enough to use.")
         st.session_state["chat_messages"].append(
             {"role": "assistant", "content": answer}
         )
-    answers = [
-        message["content"]
-        for message in st.session_state.get("chat_messages", [])
-        if message["role"] == "assistant"
-    ]
-    if answers:
+    history = st.session_state.get("chat_messages", [])
+    if history:
+        transcript = "\n\n".join(
+            f"{message['role'].title()}: {message['content']}" for message in history
+        )
         st.download_button(
-            "Download the latest answer",
-            answers[-1],
-            file_name="navicare_answer.txt",
+            "Download chat",
+            transcript,
+            file_name="navicare_chat.txt",
             mime="text/plain",
         )
     st.write("")
@@ -1226,7 +1246,7 @@ def render_methodology() -> None:
     )
     st.markdown("### Chatbot implementation")
     st.write(
-        "Ask NaviCare retrieves the closest passages from the sample notes, and from any text an admin has uploaded, using a FAISS index. No embedding API is required for that search. The built-in explainer answers from the same public notes when no key is set, and every answer ends with a reminder to verify with CPF Board, MOH, or AIC. When `OPENAI_API_KEY` is set, the language model also receives those retrieved passages, the fixed source context, and the most recent conversation turns. The model name is `CARE_LLM_MODEL`, defaulting to gpt-4o-mini. The request uses standard chat-completion fields. The key is read only from the server environment or Streamlit secrets. Model use is documented here: retrieval is local; a chat completion is sent only when a key exists."
+        "Ask NaviCare follows the bootcamp RAG steps: load a note, split it, store it, retrieve the closest parts, then answer from those parts. Each note is split into a larger parent chunk and smaller child chunks. Search uses the children, and the answer uses the parent so the surrounding sentences stay with the match. The closest match is placed first. The prompt is an f-string template. It tells the model to think step by step, to use only the retrieved notes, and to say when the notes do not contain the answer. The question is treated as data, not as a new instruction. Because a model does not remember earlier calls, the recent turns are sent again, and older turns drop off once the token estimate gets long. The call uses temperature, one reply, and a cap on the length of that reply. With no API key, cosine similarity on a local FAISS index does the search. A key can be read from a `.env` file or from Streamlit secrets. It is never written into the source. Uploaded files are checked for NRIC-style numbers and email addresses before they are stored. A full government dataset should be anonymised in CLOAK first."
     )
     st.markdown("### Limitations")
     limitations = pd.DataFrame(
@@ -1307,11 +1327,20 @@ def render_admin() -> None:
     try:
         import rag
 
-        upload = st.file_uploader("Add a text note", type=["txt", "md"])
+        upload = st.file_uploader(
+            "Upload a PDF or text note",
+            type=["pdf", "txt", "md"],
+            help="PDF text is read with pypdf. NRIC-style numbers and emails are removed before the note is stored.",
+        )
         if upload is not None and st.button("Add this note to retrieval", type="primary"):
-            saved = rag.save_upload(
-                upload.name, upload.getvalue().decode("utf-8", errors="replace")
-            )
+            raw = upload.getvalue()
+            if upload.name.lower().endswith(".pdf"):
+                from rag_pipeline import load_and_split
+
+                parts = load_and_split(raw, upload.name)
+                saved = rag.save_upload(f"{Path(upload.name).stem}.txt", "\n\n".join(parts))
+            else:
+                saved = rag.save_upload(upload.name, raw.decode("utf-8", errors="replace"))
             st.success(f"Added {saved}. Ask NaviCare can retrieve it on the next question.")
         documents = rag.list_documents()
         if documents:
@@ -1397,12 +1426,13 @@ def main() -> None:
     inject_css()
     render_brand_bar()
     page = render_sidebar()
-    if st.session_state.get("login_open") and st.session_state.get("auth_group") not in {
-        "User",
-        "Admin",
-    }:
-        render_login()
-    elif page == "Home":
+    gated = page in FEATURE_PAGES or page == ADMIN_PAGE or st.session_state.get("login_open")
+    if gated and st.session_state.get("auth_group") not in {"User", "Admin"}:
+        from utility import check_password
+
+        if not check_password():
+            st.stop()
+    if page == "Home":
         render_home()
     elif page == "Understand my scheme":
         render_coverage()
